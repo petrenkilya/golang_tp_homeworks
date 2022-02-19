@@ -1,3 +1,3 @@
-module uniqGo
+module uniq
 
 go 1.17
