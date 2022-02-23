@@ -22,8 +22,9 @@ type Options struct {
 
 func formResult(outputStrings []outputData, opts Options) (returnValue []string) {
 	if opts.CUsed {
-		for _, item := range outputStrings {
-			returnValue = append(returnValue, strconv.Itoa(item.count)+" "+item.str)
+		returnValue = make([]string, len(outputStrings), len(outputStrings))
+		for index, item := range outputStrings {
+			returnValue[index] = strconv.Itoa(item.count) + " " + item.str
 		}
 	} else if opts.DUsed {
 		for _, item := range outputStrings {
@@ -38,8 +39,9 @@ func formResult(outputStrings []outputData, opts Options) (returnValue []string)
 			}
 		}
 	} else {
-		for _, item := range outputStrings {
-			returnValue = append(returnValue, item.str)
+		returnValue = make([]string, len(outputStrings), len(outputStrings))
+		for index, item := range outputStrings {
+			returnValue[index] = item.str
 		}
 	}
 	return
