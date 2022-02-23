@@ -1,3 +1,3 @@
-module uniq
+module lineUtils
 
 go 1.17

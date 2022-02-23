@@ -1,56 +1,61 @@
 package main
 
 import (
-	"bufio"
+	"flag"
 	"fmt"
+	"lineUtils/uniq"
+	"lineUtils/utilities"
 	"os"
-	"uniqGo/uniq"
 )
 
 func main() {
-	args := os.Args[1:]
-	errorFile := os.Stderr
+	opts := uniq.Options{}
 
-	parsed, err := uniq.ParseArgs(args)
+	flag.BoolVar(&opts.IUsed, "i", false, "Case insensitive compare")
+	flag.BoolVar(&opts.CUsed, "c", false, "Count repeated lines")
+	flag.BoolVar(&opts.DUsed, "d", false, "Print only repeated lines")
+	flag.BoolVar(&opts.UUsed, "u", false, "Print only not repeated lines")
+	flag.IntVar(&opts.FNumber, "f", 0, "Not use in compare first n fields")
+	flag.IntVar(&opts.SNumber, "s", 0, "Not use in compare first n chars")
+	flag.Parse()
 
-	if err != nil {
-		fmt.Fprintln(errorFile, err.Error())
-		fmt.Fprintln(errorFile, "Usage "+os.Args[0]+" [-c | -d | -u] [-i] [-f num_fields] [-s num_chars] [input_file [output_file]]")
+	if (opts.CUsed && opts.DUsed) || (opts.CUsed && opts.UUsed) || (opts.DUsed && opts.UUsed) {
+		fmt.Println("-c -d -u params can't be used together")
+		flag.PrintDefaults()
 		return
 	}
 
 	inputFile := os.Stdin
 	outputFile := os.Stdout
+	var err error
 
-	if parsed.InputFileUsed {
-		inputFile, err = os.Open(parsed.InputFileName)
+	if len(flag.Args()) > 0 {
+		inputFile, err = os.Open(flag.Args()[0])
 		if err != nil {
-			fmt.Fprintln(errorFile, "Error while opening input file: "+parsed.InputFileName)
-			return
+			fmt.Println("Can't open input file: " + flag.Args()[0])
 		}
-		defer inputFile.Close()
+		return
 	}
 
-	if parsed.OutputFileUsed {
-		outputFile, err = os.Create(parsed.OutputFileName)
-
+	if len(flag.Args()) > 1 {
+		outputFile, err = os.Create(flag.Args()[1])
 		if err != nil {
-			fmt.Fprintln(errorFile, "Error while opening output file: "+parsed.OutputFileName)
+			fmt.Println("Can't create output file: " + flag.Args()[1])
 		}
-		defer outputFile.Close()
+		return
 	}
 
-	scanner := bufio.NewScanner(inputFile)
-
-	var scannedLines []string
-
-	for scanner.Scan() {
-		scannedLines = append(scannedLines, scanner.Text())
+	inputLines, err := utilities.LinesRead(inputFile)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	resultedLines := uniq.Uniq(scannedLines, parsed)
+	outputLines := uniq.Uniq(inputLines, opts)
 
-	for _, line := range resultedLines {
-		fmt.Fprintln(outputFile, line)
+	err = utilities.LinesWrite(outputLines, outputFile)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 }

@@ -11,7 +11,7 @@ func TestUniqTableDriven(t *testing.T) {
 	var testsUniq = []struct {
 		inputLines  []string
 		outputLines []string
-		options     string
+		opts        Options
 	}{
 		{strings.Split(
 			//InputLines
@@ -33,7 +33,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"I love music of Kartik.",
 			"\n"),
 			//Args
-			"",
+			Options{},
 		},
 
 		{strings.Split(
@@ -56,7 +56,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"2 I love music of Kartik.",
 			"\n"),
 			//Args
-			"-c",
+			Options{CUsed: true},
 		},
 
 		{strings.Split(
@@ -77,7 +77,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"I love music of Kartik.",
 			"\n"),
 			//Args
-			"-d",
+			Options{DUsed: true},
 		},
 
 		{strings.Split(
@@ -97,7 +97,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			"-u",
+			Options{UUsed: true},
 		},
 
 		{strings.Split(
@@ -120,7 +120,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"I love music of kartik.",
 			"\n"),
 			//Args
-			"-i",
+			Options{IUsed: true},
 		},
 
 		{strings.Split(
@@ -140,7 +140,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			"-f 1",
+			Options{FNumber: 1},
 		},
 
 		{strings.Split(
@@ -161,7 +161,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			"-s 1",
+			Options{SNumber: 1},
 		},
 
 		{strings.Split(
@@ -181,17 +181,14 @@ func TestUniqTableDriven(t *testing.T) {
 				"1 Thanks.",
 			"\n"),
 			//Args
-			"-f 1 -c",
+			Options{FNumber: 1, CUsed: true},
 		},
 	}
 	for _, testCase := range testsUniq {
-		testName := testCase.options + " testing"
+		testName := fmt.Sprint(testCase.opts) + " testing"
 		t.Run(testName, func(t *testing.T) {
-			parsedArgs, err := ParseArgs(strings.Split(testCase.options, " "))
-			if err != nil {
-				t.Error(err)
-			}
-			testingLines := Uniq(testCase.inputLines, parsedArgs)
+
+			testingLines := Uniq(testCase.inputLines, testCase.opts)
 
 			if len(testingLines) != len(testCase.outputLines) {
 				t.Error("Number of output lines mismatched! Wanted: " + strconv.Itoa(len(testCase.outputLines)) + " , got: " + strconv.Itoa(len(testingLines)) + " \n")
@@ -202,42 +199,6 @@ func TestUniqTableDriven(t *testing.T) {
 				if testingLines[index] != expectedLine {
 					t.Error("Line " + strconv.Itoa(index) + " mismatched, got '" + testingLines[index] + "', expected '" + expectedLine + "'\n")
 				}
-			}
-		})
-	}
-}
-
-func TestParseArgsTableDriven(t *testing.T) {
-	var testsPasringArgs = []struct {
-		in  string
-		out UniqOptions
-	}{{"-c", UniqOptions{CduUsed: true, CduParam: "-c"}},
-		{"-d", UniqOptions{CduUsed: true, CduParam: "-d"}},
-		{"-u", UniqOptions{CduUsed: true, CduParam: "-u"}},
-		{"-f 32", UniqOptions{FNumber: 32}},
-		{"-s 9", UniqOptions{SNumber: 9}},
-		{"-i", UniqOptions{IUsed: true}},
-		{"-c -i -f 4 -s 8", UniqOptions{CduUsed: true, CduParam: "-c", FNumber: 4, SNumber: 8, IUsed: true}},
-		{"input.txt", UniqOptions{InputFileUsed: true, InputFileName: "input.txt"}},
-
-		{"input.txt output.txt", UniqOptions{InputFileUsed: true, InputFileName: "input.txt",
-			OutputFileUsed: true, OutputFileName: "output.txt"}},
-
-		{"-u -i -f 4 -s 8 input.txt output.txt", UniqOptions{CduUsed: true, CduParam: "-u", FNumber: 4,
-			SNumber: 8, IUsed: true, InputFileUsed: true, InputFileName: "input.txt",
-			OutputFileUsed: true, OutputFileName: "output.txt"}},
-	}
-
-	for _, testCase := range testsPasringArgs {
-		testName := "Testing: '" + testCase.in + "'\n"
-		t.Run(testName, func(t *testing.T) {
-			testingArgs, err := ParseArgs(strings.Split(testCase.in, " "))
-			if err != nil {
-				t.Error(err)
-			}
-			if testingArgs != testCase.out {
-				t.Error("Result incorrect, got :\n" + fmt.Sprint(testingArgs) +
-					"\n expected :\n" + fmt.Sprint(testCase.out))
 			}
 		})
 	}
