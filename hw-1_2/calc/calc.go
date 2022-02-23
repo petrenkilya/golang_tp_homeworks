@@ -2,16 +2,43 @@ package calc
 
 import (
 	"fmt"
-	"github.com/golang-collections/collections/stack"
 	"strings"
 )
 
-type calculatorError struct {
-	errStr string
+type Stack struct {
+	data []interface{}
+	head int
 }
 
-func (cE calculatorError) Error() string {
-	return cE.errStr
+func NewStack() *Stack {
+	return &Stack{head: 0, data: []interface{}{}}
+}
+
+func (st *Stack) Push(elem interface{}) {
+	if st.head == len(st.data) {
+		st.data = append(st.data, len(st.data)*2)
+	}
+	st.data[st.head] = elem
+	st.head++
+}
+
+func (st *Stack) Pop() interface{} {
+	if st.head == 0 {
+		panic("empty stack pop")
+	}
+	st.head--
+	return st.data[st.head]
+}
+
+func (st *Stack) Peek() interface{} {
+	if st.head == 0 {
+		panic("empty stack peek")
+	}
+	return st.data[st.head-1]
+}
+
+func (st *Stack) Len() int {
+	return st.head
 }
 
 type operatorT struct {
@@ -58,28 +85,79 @@ func (op operatorT) calculate(a float64, b float64) float64 {
 	}
 }
 
-func reversePolish(expr string) (string, error) {
-	operatorStack := stack.New()
+func cutStrToAny(strToCut *string, charsToFind string) int {
+	indexOfFoundData := strings.IndexAny(*strToCut, charsToFind)
+	if indexOfFoundData == -1 {
+		*strToCut = (*strToCut)[len(*strToCut):]
+		return indexOfFoundData
+	}
+	*strToCut = (*strToCut)[indexOfFoundData:]
+	return 0
+}
+
+func finishPolishNotation(operatorStack *Stack, inputStr string) (string, error) {
+	for operatorStack.Len() > 0 {
+		stackOperator := operatorStack.Pop().(operatorT)
+		if stackOperator.isOpening {
+			return "", fmt.Errorf("number of brackets mismatched")
+		}
+
+		inputStr = inputStr + string(stackOperator.operator) + " "
+	}
+
+	if len(inputStr) > 0 && (inputStr)[len(inputStr)-1] == ' ' {
+		inputStr = (inputStr)[:len(inputStr)-1]
+	}
+	return inputStr, nil
+}
+
+func reversePolishProcessLowerPriorityOperator(operatorStack *Stack, bufferOperator operatorT, outputStr *string) {
+	for operatorStack.Len() > 0 {
+		stackOperator := operatorStack.Peek().(operatorT)
+		if stackOperator.priority < bufferOperator.priority || bufferOperator.isOpening {
+			break
+		}
+		operatorStack.Pop()
+
+		*outputStr = *outputStr + string(stackOperator.operator) + " "
+	}
+}
+
+func reversePolishProcessClosing(operatorStack *Stack, bufferOperator operatorT, outputStr *string) (bool, error) {
+	for bufferOperator.isClosing {
+		if operatorStack.Len() == 0 {
+			return false, fmt.Errorf("number of brackets mismatched")
+		}
+		stackOperator := operatorStack.Pop().(operatorT)
+		if stackOperator.isOpening {
+			return true, nil
+		}
+
+		*outputStr = *outputStr + string(stackOperator.operator) + " "
+	}
+	return false, nil
+}
+
+func reversePolishNotation(expr string) (string, error) {
+	operatorStack := NewStack()
 	outputStr := ""
 	firstNumberPrinted := false
 
-MainLoop:
 	for len(expr) > 0 {
-		indexOfData := strings.IndexAny(expr, "1234567890()+-*/")
-		if indexOfData == -1 {
+		if cutStrToAny(&expr, "1234567890()+-*/") == -1 {
 			break
 		}
-		expr = expr[indexOfData:]
 
 		var bufferOperatorChar uint8
 		_, err := fmt.Sscanf(expr, "%c", &bufferOperatorChar)
 		if err != nil {
-			return "", calculatorError{"Operator not supported"}
+			return "", fmt.Errorf("operator not supported")
 		}
 
-		//processing operators
 		bufferOperator, isOperator := newOperator(bufferOperatorChar)
 		processAsOperator := true
+
+		//try to process as number
 		if isOperator && !firstNumberPrinted && bufferOperator.priority == 1 {
 			var bufferNumber float64
 			_, err = fmt.Sscanf(expr, "%f", &bufferNumber)
@@ -88,29 +166,18 @@ MainLoop:
 			}
 		}
 
+		//processing operators
 		if isOperator && processAsOperator {
-			for bufferOperator.isClosing {
-				if operatorStack.Len() == 0 {
-					return "", calculatorError{"Number of brackets mismatched"}
-				}
-				stackOperator := operatorStack.Pop().(operatorT)
-				if stackOperator.isOpening {
-					expr = expr[1:]
-					continue MainLoop
-				}
-
-				outputStr = outputStr + string(stackOperator.operator) + " "
+			processed, err := reversePolishProcessClosing(operatorStack, bufferOperator, &outputStr)
+			if err != nil {
+				return "", err
+			}
+			if processed {
+				expr = expr[1:]
+				continue
 			}
 
-			for operatorStack.Len() > 0 {
-				stackOperator := operatorStack.Peek().(operatorT)
-				if stackOperator.priority < bufferOperator.priority || bufferOperator.isOpening {
-					break
-				}
-				operatorStack.Pop()
-
-				outputStr = outputStr + string(stackOperator.operator) + " "
-			}
+			reversePolishProcessLowerPriorityOperator(operatorStack, bufferOperator, &outputStr)
 
 			if bufferOperator.isOpening {
 				firstNumberPrinted = false
@@ -125,7 +192,7 @@ MainLoop:
 		var bufferNumber float64
 		_, err = fmt.Sscanf(expr, "%f", &bufferNumber)
 		if err != nil {
-			return "", calculatorError{"Bad math expression"}
+			return "", fmt.Errorf("bad math expression")
 		}
 		bufferStr := fmt.Sprintf("%f", bufferNumber)
 		if bufferNumber < 0 {
@@ -133,41 +200,27 @@ MainLoop:
 		}
 		firstNumberPrinted = true
 
-		indexOfOperator := strings.IndexAny(expr, " +-*/()")
-		if indexOfOperator == -1 {
-			expr = expr[len(expr):]
-		} else {
-			expr = expr[indexOfOperator:]
-		}
+		cutStrToAny(&expr, " +-*/()")
 
 		outputStr = outputStr + bufferStr + " "
 	}
 
-	for operatorStack.Len() > 0 {
-		stackOperator := operatorStack.Pop().(operatorT)
-		if stackOperator.isOpening {
-			return "", calculatorError{"Number of brackets mismatched"}
-		}
-
-		outputStr = outputStr + string(stackOperator.operator) + " "
-	}
-
-	if len(outputStr) > 0 && outputStr[len(outputStr)-1] == ' ' {
-		outputStr = outputStr[:len(outputStr)-1]
-	}
-
-	return outputStr, nil
+	return finishPolishNotation(operatorStack, outputStr)
 }
 
 func Calculator(expr string) (result float64, er error) {
-	reversePolishStr, err := reversePolish(expr)
+	reversePolishStr, err := reversePolishNotation(expr)
 	if err != nil {
 		er = err
 		return
 	}
+
+	if len(reversePolishStr) == 0 {
+		return 0, fmt.Errorf("bad math expression")
+	}
 	splittedPolish := strings.Split(reversePolishStr, " ")
 
-	numberStack := stack.New()
+	numberStack := NewStack()
 	for _, item := range splittedPolish {
 		var num float64
 		_, err = fmt.Sscanf(item, "%f", &num)
@@ -177,26 +230,27 @@ func Calculator(expr string) (result float64, er error) {
 		}
 
 		operator, isOperator := newOperator(item[0])
-		if isOperator {
-			if numberStack.Len() < 1 {
-				er = calculatorError{"Bad number of operands"}
-				return
-			}
-			b := numberStack.Pop().(float64)
-
-			a := 0.0
-			if numberStack.Len() > 0 {
-				a = numberStack.Pop().(float64)
-			}
-			numberStack.Push(operator.calculate(a, b))
-			continue
+		if !isOperator {
+			er = fmt.Errorf("bad math expression")
+			return
 		}
-		er = calculatorError{"Bad math expression"}
-		return
+
+		if numberStack.Len() < 1 {
+			er = fmt.Errorf("bad number of operands")
+			return
+		}
+		b := numberStack.Pop().(float64)
+
+		a := 0.0
+		if numberStack.Len() > 0 {
+			a = numberStack.Pop().(float64)
+		}
+		numberStack.Push(operator.calculate(a, b))
+		continue
 	}
 
 	if numberStack.Len() > 1 {
-		er = calculatorError{"Bad number of operators"}
+		er = fmt.Errorf("bad number of operators")
 	}
 	result = numberStack.Pop().(float64)
 	return
