@@ -99,11 +99,11 @@ func multiHashWorker(data string, oldDataSendedMutex *sync.Mutex, newDataSendedM
 	for i := 0; i < MultiHashTh; i++ {
 		currentChannel := make(chan string, MaxInputLen)
 
-		go func(data string, index int) {
+		go func(data string, index int, currentChannel chan string) {
 			th := strconv.Itoa(index)
 
 			currentChannel <- DataSignerCrc32(th + data)
-		}(data, i)
+		}(data, i, currentChannel)
 
 		channels = append(channels, currentChannel)
 	}
