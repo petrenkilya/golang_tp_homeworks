@@ -4,36 +4,32 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	strings2 "strings"
+	"strings"
 	"sync"
 )
 
-func ExecutePipeline(jobs ...job) []interface{} {
-	numberOfChannels := len(jobs)
-	var channels []chan interface{}
-	for i := 0; i < numberOfChannels; i++ {
-		channels = append(channels, make(chan interface{}, 1))
-	}
+const MultiHashTh = 6
+const MaxInputLen = 1
+
+func ExecutePipeline(jobs ...job) {
+	waiter := &sync.WaitGroup{}
 
 	preparedWorker := func(worker job, in, out chan interface{}) {
 		worker(in, out)
 		close(out)
+		waiter.Done()
 	}
 
-	for index, worker := range jobs {
-		if index == 0 {
-			go preparedWorker(worker, nil, channels[index])
-			continue
-		}
-		go preparedWorker(worker, channels[index-1], channels[index])
+	var prevChannel chan interface{} = nil
+	var nextChannel chan interface{} = nil
+	for i := 0; i < len(jobs); i++ {
+		nextChannel = make(chan interface{}, MaxInputLen)
+		waiter.Add(1)
+		go preparedWorker(jobs[i], prevChannel, nextChannel)
+		prevChannel = nextChannel
 	}
 
-	var result []interface{}
-
-	for item := range channels[len(channels)-1] {
-		result = append(result, item)
-	}
-	return result
+	waiter.Wait()
 }
 
 func SingleHash(in, out chan interface{}) {
@@ -53,9 +49,9 @@ func SingleHash(in, out chan interface{}) {
 
 		waiter.Add(1)
 		go func(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex) {
-			md5OfDataChan := make(chan string, 1)
-			crcOfDataChan := make(chan string, 1)
-			crcOfmd5DataChan := make(chan string, 1)
+			md5OfDataChan := make(chan string, MaxInputLen)
+			crcOfDataChan := make(chan string, MaxInputLen)
+			crcOfmd5DataChan := make(chan string, MaxInputLen)
 
 			go func() {
 				md5Mutex.Lock()
@@ -97,6 +93,36 @@ func SingleHash(in, out chan interface{}) {
 	waiter.Wait()
 }
 
+func multiHashWorker(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex, out chan interface{},
+	waiter *sync.WaitGroup) {
+	var channels []chan string
+	for i := 0; i < MultiHashTh; i++ {
+		currentChannel := make(chan string, MaxInputLen)
+
+		go func(data string, index int, currentChannel chan string) {
+			th := strconv.Itoa(index)
+
+			currentChannel <- DataSignerCrc32(th + data)
+		}(data, i, currentChannel)
+
+		channels = append(channels, currentChannel)
+	}
+	result := ""
+
+	for index, ch := range channels {
+		buffer := <-ch
+		result += buffer
+		fmt.Printf("%s MultiHash: crc32(th+step1) %d %s\n", data, index, buffer)
+	}
+	oldDataSendedMutex.Lock()
+	out <- result
+	oldDataSendedMutex.Unlock()
+	newDataSendedMutex.Unlock()
+
+	fmt.Printf("%s MultiHash result: %s\n", data, result)
+	waiter.Done()
+}
+
 func MultiHash(in, out chan interface{}) {
 	oldDataSendedMutex := &sync.Mutex{}
 	waiter := &sync.WaitGroup{}
@@ -110,50 +136,23 @@ func MultiHash(in, out chan interface{}) {
 		newDataSendedMutex := &sync.Mutex{}
 		newDataSendedMutex.Lock()
 		waiter.Add(1)
-		go func(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex) {
-			var channels []chan string
-			for i := 0; i < 6; i++ {
-				currentChannel := make(chan string, 1)
-
-				go func(data string, index int) {
-					th := strconv.Itoa(index)
-
-					currentChannel <- DataSignerCrc32(th + data)
-				}(data, i)
-
-				channels = append(channels, currentChannel)
-			}
-			result := ""
-
-			for index, ch := range channels {
-				buffer := <-ch
-				result += buffer
-				fmt.Printf("%s MultiHash: crc32(th+step1) %d %s\n", data, index, buffer)
-			}
-			oldDataSendedMutex.Lock()
-			out <- result
-			oldDataSendedMutex.Unlock()
-			newDataSendedMutex.Unlock()
-
-			fmt.Printf("%s MultiHash result: %s\n", data, result)
-			waiter.Done()
-		}(data, oldDataSendedMutex, newDataSendedMutex)
+		go multiHashWorker(data, oldDataSendedMutex, newDataSendedMutex, out, waiter)
 		oldDataSendedMutex = newDataSendedMutex
 	}
 	waiter.Wait()
 }
 
 func CombineResults(in, out chan interface{}) {
-	var strings []string
+	var outStrings []string
 	for input := range in {
 		data, ok := input.(string)
 		if !ok {
 			return
 		}
-		strings = append(strings, data)
+		outStrings = append(outStrings, data)
 	}
-	sort.Strings(strings)
-	result := strings2.Join(strings, "_")
+	sort.Strings(outStrings)
+	result := strings.Join(outStrings, "_")
 
 	out <- result
 	fmt.Printf("CombineResults %s\n", result)
