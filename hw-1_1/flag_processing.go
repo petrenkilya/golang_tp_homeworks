@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"lineUtils/uniq"
+	"log"
 )
 
 func createFlagsToUniqOptsFromArgs() (uniq.Options, bool) {
@@ -17,7 +17,7 @@ func createFlagsToUniqOptsFromArgs() (uniq.Options, bool) {
 	flag.Parse()
 
 	if (opts.CFlagUsed && opts.DFlagUsed) || (opts.CFlagUsed && opts.UFlagUsed) || (opts.DFlagUsed && opts.UFlagUsed) {
-		fmt.Println("-c -d -u params can't be used together")
+		log.Fatalf("-c -d -u params can't be used together")
 		flag.PrintDefaults()
 		return uniq.Options{}, true
 	}

@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"lineUtils/uniq"
 	"lineUtils/utilities"
+	"log"
 	"os"
 )
 
@@ -21,7 +21,7 @@ func main() {
 	if len(flag.Args()) > 0 {
 		inputFile, err = os.Open(flag.Args()[0])
 		if err != nil {
-			fmt.Println("Can't open input file: " + flag.Args()[0])
+			log.Fatalln("Can't open input file: " + flag.Args()[0])
 		}
 		return
 	}
@@ -29,14 +29,14 @@ func main() {
 	if len(flag.Args()) > 1 {
 		outputFile, err = os.Create(flag.Args()[1])
 		if err != nil {
-			fmt.Println("Can't create output file: " + flag.Args()[1])
+			log.Fatalln("Can't create output file: " + flag.Args()[1])
 		}
 		return
 	}
 
 	inputLines, err := utilities.LinesRead(inputFile)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("Fatal while reading error: %v", err)
 		return
 	}
 
@@ -44,7 +44,7 @@ func main() {
 
 	err = utilities.LinesWrite(outputLines, outputFile)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("Fatal while writing error: %v", err)
 		return
 	}
 }
