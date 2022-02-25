@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"calc/calc"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -15,7 +16,8 @@ func main() {
 	result, err := calc.Calculator(inputStr)
 
 	if err != nil {
-		fmt.Println("Error: " + err.Error())
+		log.Println(err)
+		log.Printf("%w", err)
 		return
 	}
 
