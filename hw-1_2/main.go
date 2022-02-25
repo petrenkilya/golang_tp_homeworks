@@ -16,8 +16,7 @@ func main() {
 	result, err := calc.Calculator(inputStr)
 
 	if err != nil {
-		log.Println(err)
-		log.Printf("%w", err)
+		log.Fatalf("Calculator fatal error: %v", err)
 		return
 	}
 
