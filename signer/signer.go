@@ -20,8 +20,8 @@ func ExecutePipeline(jobs ...job) {
 		waiter.Done()
 	}
 
-	var prevChannel chan interface{} = nil
-	var nextChannel chan interface{} = nil
+	var prevChannel chan interface{}
+	var nextChannel chan interface{}
 	for i := 0; i < len(jobs); i++ {
 		nextChannel = make(chan interface{}, MaxInputLen)
 		waiter.Add(1)
@@ -30,6 +30,48 @@ func ExecutePipeline(jobs ...job) {
 	}
 
 	waiter.Wait()
+}
+
+func singleHashWorker(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex,
+	md5Mutex *sync.Mutex, waiter *sync.WaitGroup, out chan interface{}) {
+	md5OfDataChan := make(chan string, MaxInputLen)
+	crcOfDataChan := make(chan string, MaxInputLen)
+	crcOfmd5DataChan := make(chan string, MaxInputLen)
+
+	go func() {
+		md5Mutex.Lock()
+		md5OfDataChan <- DataSignerMd5(data)
+		md5Mutex.Unlock()
+	}()
+	go func() {
+		crcOfDataChan <- DataSignerCrc32(data)
+	}()
+
+	md5OfData := <-md5OfDataChan
+
+	go func() {
+		crcOfmd5DataChan <- DataSignerCrc32(md5OfData)
+	}()
+	crcOfmd5Data := <-crcOfmd5DataChan
+	crcOfData := <-crcOfDataChan
+
+	result := crcOfData + "~" + crcOfmd5Data
+
+	close(crcOfDataChan)
+	close(crcOfmd5DataChan)
+	close(md5OfDataChan)
+
+	oldDataSendedMutex.Lock()
+	out <- result
+	oldDataSendedMutex.Unlock()
+	newDataSendedMutex.Unlock()
+
+	fmt.Printf("%s SingleHash data %s\n", data, data)
+	fmt.Printf("%s SingleHash md5(data) %s\n", data, md5OfData)
+	fmt.Printf("%s SingleHash crc32(md5(data)) %s\n", data, crcOfmd5Data)
+	fmt.Printf("%s SingleHash crc32(data) %s\n", data, crcOfData)
+	fmt.Printf("%s SingleHash result %s\n", data, result)
+	waiter.Done()
 }
 
 func SingleHash(in, out chan interface{}) {
@@ -48,46 +90,8 @@ func SingleHash(in, out chan interface{}) {
 		newDataSendedMutex.Lock()
 
 		waiter.Add(1)
-		go func(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex) {
-			md5OfDataChan := make(chan string, MaxInputLen)
-			crcOfDataChan := make(chan string, MaxInputLen)
-			crcOfmd5DataChan := make(chan string, MaxInputLen)
+		go singleHashWorker(data, oldDataSendedMutex, newDataSendedMutex, md5Mutex, waiter, out)
 
-			go func() {
-				md5Mutex.Lock()
-				md5OfDataChan <- DataSignerMd5(data)
-				md5Mutex.Unlock()
-			}()
-			go func() {
-				crcOfDataChan <- DataSignerCrc32(data)
-			}()
-
-			md5OfData := <-md5OfDataChan
-
-			go func() {
-				crcOfmd5DataChan <- DataSignerCrc32(md5OfData)
-			}()
-			crcOfmd5Data := <-crcOfmd5DataChan
-			crcOfData := <-crcOfDataChan
-
-			result := crcOfData + "~" + crcOfmd5Data
-
-			close(crcOfDataChan)
-			close(crcOfmd5DataChan)
-			close(md5OfDataChan)
-
-			oldDataSendedMutex.Lock()
-			out <- result
-			oldDataSendedMutex.Unlock()
-			newDataSendedMutex.Unlock()
-
-			fmt.Printf("%s SingleHash data %s\n", data, data)
-			fmt.Printf("%s SingleHash md5(data) %s\n", data, md5OfData)
-			fmt.Printf("%s SingleHash crc32(md5(data)) %s\n", data, crcOfmd5Data)
-			fmt.Printf("%s SingleHash crc32(data) %s\n", data, crcOfData)
-			fmt.Printf("%s SingleHash result %s\n", data, result)
-			waiter.Done()
-		}(data, oldDataSendedMutex, newDataSendedMutex)
 		oldDataSendedMutex = newDataSendedMutex
 	}
 	waiter.Wait()
