@@ -56,7 +56,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"2 I love music of Kartik.",
 			"\n"),
 			//Args
-			Options{CUsed: true},
+			Options{CFlagUsed: true},
 		},
 
 		{strings.Split(
@@ -77,7 +77,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"I love music of Kartik.",
 			"\n"),
 			//Args
-			Options{DUsed: true},
+			Options{DFlagUsed: true},
 		},
 
 		{strings.Split(
@@ -97,7 +97,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			Options{UUsed: true},
+			Options{UFlagUsed: true},
 		},
 
 		{strings.Split(
@@ -120,7 +120,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"I love music of kartik.",
 			"\n"),
 			//Args
-			Options{IUsed: true},
+			Options{IFlagUsed: true},
 		},
 
 		{strings.Split(
@@ -140,7 +140,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			Options{FNumber: 1},
+			Options{FFlagNumber: 1},
 		},
 
 		{strings.Split(
@@ -161,7 +161,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"Thanks.",
 			"\n"),
 			//Args
-			Options{SNumber: 1},
+			Options{SFlagNumber: 1},
 		},
 
 		{strings.Split(
@@ -181,7 +181,7 @@ func TestUniqTableDriven(t *testing.T) {
 				"1 Thanks.",
 			"\n"),
 			//Args
-			Options{FNumber: 1, CUsed: true},
+			Options{FFlagNumber: 1, CFlagUsed: true},
 		},
 	}
 	for _, testCase := range testsUniq {

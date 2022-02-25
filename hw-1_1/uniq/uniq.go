@@ -12,27 +12,27 @@ type outputData struct {
 }
 
 type Options struct {
-	CUsed   bool
-	DUsed   bool
-	UUsed   bool
-	FNumber int
-	SNumber int
-	IUsed   bool
+	CFlagUsed   bool
+	DFlagUsed   bool
+	UFlagUsed   bool
+	FFlagNumber int
+	SFlagNumber int
+	IFlagUsed   bool
 }
 
 func formResult(outputStrings []outputData, opts Options) (returnValue []string) {
-	if opts.CUsed {
+	if opts.CFlagUsed {
 		returnValue = make([]string, len(outputStrings), len(outputStrings))
 		for index, item := range outputStrings {
 			returnValue[index] = strconv.Itoa(item.count) + " " + item.str
 		}
-	} else if opts.DUsed {
+	} else if opts.DFlagUsed {
 		for _, item := range outputStrings {
 			if item.count > 1 {
 				returnValue = append(returnValue, item.str)
 			}
 		}
-	} else if opts.UUsed {
+	} else if opts.UFlagUsed {
 		for _, item := range outputStrings {
 			if item.count == 1 {
 				returnValue = append(returnValue, item.str)
@@ -48,7 +48,7 @@ func formResult(outputStrings []outputData, opts Options) (returnValue []string)
 }
 
 func getCompareString(inputStr string, opts Options) string {
-	for i := 0; i < opts.FNumber; i++ {
+	for i := 0; i < opts.FFlagNumber; i++ {
 		index := strings.IndexByte(inputStr, ' ')
 		if index == -1 {
 			inputStr = ""
@@ -57,8 +57,8 @@ func getCompareString(inputStr string, opts Options) string {
 		inputStr = inputStr[index+1 : len(inputStr)-1]
 	}
 
-	if opts.SNumber > 0 {
-		leftBound := opts.SNumber
+	if opts.SFlagNumber > 0 {
+		leftBound := opts.SFlagNumber
 		if leftBound > len(inputStr)-1 {
 			leftBound = len(inputStr) - 1
 		}
@@ -93,8 +93,8 @@ func Uniq(inputLines []string, opts Options) (returnValue []string) {
 			firstIteration = true
 		}
 
-		if !firstIteration && ((opts.IUsed && strings.EqualFold(lastScannedItem.compareStr, compareString)) ||
-			(!opts.IUsed && lastScannedItem.compareStr == compareString)) {
+		if !firstIteration && ((opts.IFlagUsed && strings.EqualFold(lastScannedItem.compareStr, compareString)) ||
+			(!opts.IFlagUsed && lastScannedItem.compareStr == compareString)) {
 			lastScannedItem.count++
 		} else {
 			ouputStrings = append(ouputStrings, outputData{1, processingString, compareString})
