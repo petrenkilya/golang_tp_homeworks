@@ -99,31 +99,31 @@ func SingleHash(in, out chan interface{}) {
 
 func multiHashWorker(data string, oldDataSendedMutex *sync.Mutex, newDataSendedMutex *sync.Mutex, out chan interface{},
 	waiter *sync.WaitGroup) {
-	var channels []chan string
-	for i := 0; i < MultiHashTh; i++ {
-		currentChannel := make(chan string, MaxInputLen)
+	results := make([]string, MultiHashTh, MultiHashTh)
+	innerWaiter := &sync.WaitGroup{}
 
-		go func(data string, index int, currentChannel chan string) {
+	for i := 0; i < MultiHashTh; i++ {
+		innerWaiter.Add(1)
+		go func(data string, index int) {
 			th := strconv.Itoa(index)
 
-			currentChannel <- DataSignerCrc32(th + data)
-		}(data, i, currentChannel)
-
-		channels = append(channels, currentChannel)
+			results[index] = DataSignerCrc32(th + data)
+			innerWaiter.Done()
+		}(data, i)
 	}
-	result := ""
+	multiHash := ""
 
-	for index, ch := range channels {
-		buffer := <-ch
-		result += buffer
-		fmt.Printf("%s MultiHash: crc32(th+step1) %d %s\n", data, index, buffer)
+	innerWaiter.Wait()
+	for index, item := range results {
+		multiHash += item
+		fmt.Printf("%s MultiHash: crc32(th+step1) %d %s\n", data, index, item)
 	}
 	oldDataSendedMutex.Lock()
-	out <- result
+	out <- multiHash
 	oldDataSendedMutex.Unlock()
 	newDataSendedMutex.Unlock()
 
-	fmt.Printf("%s MultiHash result: %s\n", data, result)
+	fmt.Printf("%s MultiHash result: %s\n", data, multiHash)
 	waiter.Done()
 }
 
