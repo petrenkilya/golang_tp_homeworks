@@ -208,11 +208,10 @@ func reversePolishNotation(expr string) (string, error) {
 	return finishPolishNotation(operatorStack, outputStr)
 }
 
-func Calculator(expr string) (result float64, er error) {
+func Calculator(expr string) (float64, error) {
 	reversePolishStr, err := reversePolishNotation(expr)
 	if err != nil {
-		er = err
-		return
+		return 0, err
 	}
 
 	if len(reversePolishStr) == 0 {
@@ -231,13 +230,11 @@ func Calculator(expr string) (result float64, er error) {
 
 		operator, isOperator := newOperator(item[0])
 		if !isOperator {
-			er = fmt.Errorf("bad math expression")
-			return
+			return 0, fmt.Errorf("bad math expression")
 		}
 
 		if numberStack.Len() < 1 {
-			er = fmt.Errorf("bad number of operands")
-			return
+			return 0, fmt.Errorf("bad number of operands")
 		}
 		b := numberStack.Pop().(float64)
 
@@ -250,8 +247,8 @@ func Calculator(expr string) (result float64, er error) {
 	}
 
 	if numberStack.Len() > 1 {
-		er = fmt.Errorf("bad number of operators")
+		return 0, fmt.Errorf("bad number of operators")
 	}
-	result = numberStack.Pop().(float64)
-	return
+
+	return numberStack.Pop().(float64), nil
 }
